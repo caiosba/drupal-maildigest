@@ -1,0 +1,9 @@
+name = Maildigest
+description = Sends digest to subscribed users.
+core = 6.x
+dependencies[] = "ctools"
+dependencies[] = "token"
+package = "Maildigest"
+
+files[] = maildigest.install
+files[] = maildigest.module
