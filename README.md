@@ -44,4 +44,4 @@ Digest received through e-mail:
 
 ![E-mail](http://homes.dcc.ufba.br/~caiosba/drupal/maildigest-mail.png "E-mail")
 
-This module was sponsored by [Meedan](http://meedan.org).
+This module was fully sponsored by [Meedan](http://meedan.org).
