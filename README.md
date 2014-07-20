@@ -34,15 +34,15 @@ Screenshots:
 
 Administrative UI (creating a digest):
 
-![UI](http://homes.dcc.ufba.br/~caiosba/drupal/maildigest-ui.png "UI")
+![UI](http://ca.ios.ba/files/drupal/maildigest-ui.png "UI")
 
 Subscribing to a digest from the edit profile page:
 
-![Subscription](http://homes.dcc.ufba.br/~caiosba/drupal/maildigest-user.png "Subscription")
+![Subscription](http://ca.ios.ba/files/drupal/maildigest-user.png "Subscription")
 
 Digest received through e-mail:
 
-![E-mail](http://homes.dcc.ufba.br/~caiosba/drupal/maildigest-mail.png "E-mail")
+![E-mail](http://ca.ios.ba/files/drupal/maildigest-mail.png "E-mail")
 
 Check the module on [Drupal.org](https://www.drupal.org/project/maildigest).
 
