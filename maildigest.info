@@ -1,6 +1,6 @@
 name = Maildigest
 description = Sends digest to subscribed users.
-core = 6.x
+core = 7.x
 dependencies[] = "ctools"
 dependencies[] = "token"
 package = "Maildigest"

@@ -7,16 +7,16 @@
 /**
  * Implementation of hook_install().
  */
-function maildigest_install() {
+/*function maildigest_install() {
   drupal_install_schema('maildigest');
-}
+}*/
 
 /**
  * Implementation of hook_uninstall().
  */
-function maildigest_uninstall() {
+/*function maildigest_uninstall() {
   drupal_uninstall_schema('maildigest');
-}
+}*/
 
 /**
  * Maildigest's schema.
@@ -114,7 +114,7 @@ function maildigest_requirements($phase) {
   switch ($phase) {
     case 'runtime':
       $dependencies = array(
-        'token' => '6.x-1.x',
+        'token' => '7.x-1.x',
       );
 
       $error = FALSE;
@@ -124,7 +124,7 @@ function maildigest_requirements($phase) {
           $error = TRUE;
         }
         $path = drupal_get_path('module', $module);
-        $info = drupal_parse_info_file($path .'/' . $module . '.info');
+        $info = drupal_parse_info_file($path . '/' . $module . '.info');
         $version_actual = $info['version'];
         if (drupal_substr($version_required, 0, 5) != drupal_substr($version_actual, 0, 5)) {
           $warning = TRUE;
@@ -162,9 +162,7 @@ function maildigest_reset_schema() {
  * Replace 'did' column by 'digest_name' column.
  */
 function maildigest_update_1() {
-  $ret = array();
-  db_drop_field($ret, 'maildigest_subscription', 'did');
-  db_add_field($ret, 'maildigest_subscription', 'digest_name', array('type' => 'varchar', 'length' => 255));
-  db_add_index($ret, 'maildigest_subscription', 'digest_name', array('digest_name'));
-  return $ret;
+  db_drop_field('maildigest_subscription', 'did');
+  db_add_field('maildigest_subscription', 'digest_name', array('type' => 'varchar', 'length' => 255));
+  db_add_index('maildigest_subscription', 'digest_name', array('digest_name'));
 }

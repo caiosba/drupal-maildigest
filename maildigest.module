@@ -5,10 +5,15 @@
  */
 
 /**
- * Implements hook_perm().
+ * Implements hook_permission().
  */
-function maildigest_perm() {
-  return array('administer maildigest');
+function maildigest_permission() {
+  return array(
+    'administer maildigest' => array(
+      'title' => t('Administer maildigest'),
+      'description' => t('Perform administration tasks for maildigest.'),
+    ),
+  );
 }
 
 /**
@@ -25,6 +30,25 @@ function maildigest_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'ctools_export_ui_delete_confirm_form') {
     $form['#submit'][] = '_maildigest_delete_submit';
   }
+  elseif ($form_id == 'user_profile_form' || $form_id == 'user_register_form') {
+      if ($form_id == 'user_profile_form') $uid = arg(1);
+      else $uid = 0;
+      $options = _maildigest_digest_load_all_as_options(FALSE);
+      $checked_options = array_keys(_maildigest_load_subscriptions_as_options($uid));
+      if (count($options)) {
+        $form['maildigest'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Digests'),
+          '#description' => t('Select the digest(s) to which you wish to subscribe.'),
+          '#weight' => 5,
+        );
+        $form['maildigest']['digests'] = array(
+          '#type' => 'checkboxes',
+          '#options' => $options,
+          '#default_value' => $checked_options,
+        );
+      }
+  }
 }
 
 /**
@@ -35,7 +59,9 @@ function _maildigest_delete_submit($form, &$form_state) {
   $digest = maildigest_digest_load($digest_name);
   variable_del('maildigest_digest_last_sent_' . $digest_name);
   variable_del('maildigest_digest_end_time_' . $digest_name);
-  db_query("DELETE FROM {maildigest_subscription} WHERE digest_name = '%s'", $digest_name);
+  db_delete('maildigest_subscription')
+    ->condition('digest_name', $digest_name)
+    ->execute();
 }
 
 /**
@@ -126,14 +152,13 @@ function _maildigest_load_subscriptions_as_options($uid) {
  * Get subscribers of a digest as users.
  */
 function _maildigest_get_subscribers($name) {
-  $subscribers = db_query("
-    SELECT uid
-    FROM {maildigest_subscription}
-    WHERE digest_name = '%s'",
-    $name
-  );
+  $subscribers = db_select('maildigest_subscription', 's')
+    ->fields('s', array('uid'))
+    ->condition('s.digest_name', $name)
+    ->execute()
+    ->fetchAll();
   $users = array();
-  while ($subscriber = db_fetch_object($subscribers)) {
+  foreach ($subscribers as $subscriber) {
     $users[] = user_load($subscriber->uid);
   }
   return $users;
@@ -143,14 +168,13 @@ function _maildigest_get_subscribers($name) {
  * Get subscriptions of a user as digest objects.
  */
 function _maildigest_get_subscriptions_for_user($uid) {
-  $subscriptions = db_query("
-    SELECT digest_name
-    FROM {maildigest_subscription} s
-    WHERE uid = %d",
-    $uid
-  );
+  $subscriptions = db_select('maildigest_subscription', 's')
+    ->fields('s', array('digest_name'))
+    ->condition('s.uid', $uid)
+    ->execute()
+    ->fetchAll();
   $digests = array();
-  while ($subscription = db_fetch_object($subscriptions)) {
+  foreach ($subscriptions as $subscription) {
     $digests[] = maildigest_digest_load($subscription->digest_name);
   }
   return $digests;
@@ -160,13 +184,12 @@ function _maildigest_get_subscriptions_for_user($uid) {
  * Return whether a user is subscribed to a digest.
  */
 function _maildigest_is_user_subscribed_to($uid, $name) {
-  $count = db_result(db_query("SELECT COUNT(*)
-    FROM {maildigest_subscription}
-    WHERE uid = %d
-    AND digest_name = '%s'",
-    $uid,
-    $name
-  ));
+  $count = db_select('maildigest_subscription', 's')
+    ->condition('s.uid', $uid)
+    ->condition('s.digest_name', $name)
+    ->countQuery()
+    ->execute()
+    ->fetchField();
   if (intval($count) > 0) {
     return TRUE;
   }
@@ -192,10 +215,9 @@ function _maildigest_is_digest_disabled($name) {
  * Unsubscribe a user from all digests.
  */
 function _maildigest_unsubscribe_user_from_all($uid) {
-  return db_query("DELETE FROM {maildigest_subscription}
-    WHERE uid = %d",
-    $uid
-  );
+  return db_delete('maildigest_subscription')
+    ->condition('uid', $uid)
+    ->execute();
 }
 
 /**
@@ -206,12 +228,9 @@ function _maildigest_subscribe_user($uid, $name) {
     return FALSE;
   }
   else {
-    return db_query("INSERT INTO {maildigest_subscription}
-      (uid, digest_name)
-      VALUES (%d, '%s')",
-      $uid,
-      $name
-    );
+    return db_insert('maildigest_subscription')
+      ->fields(array('uid' => $uid, 'digest_name' => $name))
+      ->execute();
   }
 }
 
@@ -220,12 +239,10 @@ function _maildigest_subscribe_user($uid, $name) {
  */
 function _maildigest_unsubscribe_user($uid, $name) {
   if (_maildigest_is_user_subscribed_to($uid, $name)) {
-    return db_query("DELETE FROM {maildigest_subscription}
-      WHERE uid = %d
-      AND digest_name = '%s'",
-      $uid,
-      $name
-    );
+    return db_delete('maildigest_subscription')
+      ->condition('uid', $uid)
+      ->condition('digest_name', $name)
+      ->execute();
   }
   else {
     return FALSE;
@@ -242,7 +259,7 @@ function _maildigest_process_form($field, $account) {
         $digest = maildigest_digest_load($name);
         drupal_set_message(t('%name has been subscribed to %digest.', array('%name' => $account->name, '%digest' => $digest->admin_title)));
       }
-      else if (!$checked && _maildigest_unsubscribe_user($account->uid, $name)) {
+      elseif (!$checked && _maildigest_unsubscribe_user($account->uid, $name)) {
         $digest = maildigest_digest_load($name);
         drupal_set_message(t('%name has been unsubscribed from %digest.', array('%name' => $account->name, '%digest' => $digest->admin_title)));
       }
@@ -251,39 +268,24 @@ function _maildigest_process_form($field, $account) {
 }
 
 /**
- * Implements hook_user().
+ * Implements hook_user_update().
  */ 
-function maildigest_user($op, &$edit, &$account, $category = NULL) {
-  switch ($op) {
-    // When a user signs up, he can choose to subscribe to digests
-    case 'form':
-    case 'register':
-      $options = _maildigest_digest_load_all_as_options(FALSE);
-      $checked_options = array_keys(_maildigest_load_subscriptions_as_options($account->uid));
-      $form = array();
-      if (count($options)) {
-        $form['maildigest'] = array(
-          '#type' => 'fieldset',
-          '#title' => t('Digests'),
-          '#description' => t('Select the digest(s) to which you wish to subscribe.'),
-          '#weight' => 5,
-        );
-        $form['maildigest']['digests'] = array(
-          '#type' => 'checkboxes',
-          '#options' => $options,
-          '#default_value' => $checked_options,
-        );
-      }
-      return $form;
-      break;
-    case 'update':
-    case 'insert':
-      _maildigest_process_form($edit['digests'], $account);
-      break;
-    case 'delete':
-      _maildigest_unsubscribe_user_from_all($account->uid);
-      break;
-  }
+function maildigest_user_update(&$edit, $account, $category) {
+  _maildigest_process_form($edit['digests'], $account);
+}
+
+/**
+ * Implements hook_user_insert().
+ */ 
+function maildigest_user_insert(&$edit, $account, $category) {
+  _maildigest_process_form($edit['digests'], $account);
+}
+
+/**
+ * Implements hook_user_delete().
+ */ 
+function maildigest_user_delete($account) {
+  _maildigest_unsubscribe_user_from_all($account->uid);
 }
 
 /**
@@ -324,10 +326,10 @@ function maildigest_digest_set_next_times($digest) {
     if ($day_of_month == 'First day') {
       $next_day_to_send = gmmktime(0, 0, 0, $next_month_to_send, 1, gmdate('Y', $adjusted_last_time_sent));
     }
-    else if ($day_of_month == 'Last day') {
+    elseif ($day_of_month == 'Last day') {
       $next_day_to_send = gmmktime(0, 0, 0, $next_month_to_send + 1, 0, gmdate('Y', $adjusted_last_time_sent));
     }
-    else if ($day_of_month == '15th') {
+    elseif ($day_of_month == '15th') {
       $next_day_to_send = gmmktime(0, 0, 0, $next_month_to_send, 15, gmdate('Y', $adjusted_last_time_sent));
     }
     else {
@@ -345,8 +347,8 @@ function maildigest_digest_set_next_times($digest) {
 function _maildigest_get_day_of_month($next_month_to_send, $day_of_month, $adjusted_last_time_sent) {
   $week = array(0 => 'First', 1 => 'Second', 2 => 'Third', 3 => 'Fourth');
   $weekdays = array('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
-  for($week_of_month = 0; $week_of_month < 5; $week_of_month++) {
-    for($days_of_week = 0; $days_of_week < 7; $days_of_week++) {
+  for ($week_of_month = 0; $week_of_month < 5; $week_of_month++) {
+    for ($days_of_week = 0; $days_of_week < 7; $days_of_week++) {
       $day_index = ($week_of_month * 7) + $days_of_week + 1;
       $day = gmdate('w', gmmktime(0, 0, 0, $next_month_to_send, $day_index, gmdate('Y', $adjusted_last_time_sent)));
       if (($week[$week_of_month] . ' ' . $weekdays[$day]) == $day_of_month) {
@@ -366,10 +368,10 @@ function _maildigest_send_digest($digest) {
   foreach (_maildigest_get_subscribers($digest->name) as $user) {
     $lang = str_replace('-', '_', $user->language);
     $subject = !empty($digest->settings['subject_' . $lang]) ? $digest->settings['subject_' . $lang] : $digest->settings['subject_en'];
-    $message = !empty($digest->settings['message_' . $lang]) ? $digest->settings['message_' . $lang] : $digest->settings['message_en'];
-    $format = !empty($digest->settings['format']) ? intval($digest->settings['format']) : FILTER_FORMAT_DEFAULT;
-    $message = check_markup(token_replace_multiple($message, array('node' => $digest, 'user' => $user), TOKEN_PREFIX, TOKEN_SUFFIX, array('clear' => TRUE)), $format, FALSE);
-    $subject = token_replace_multiple($subject, array('node' => $digest, 'user' => $user));
+    $message = !empty($digest->settings['message_' . $lang]['value']) ? $digest->settings['message_' . $lang]['value'] : $digest->settings['message_en']['value'];
+    $format = !empty($digest->settings['message_' . $lang]['format']) ? $digest->settings['message_' . $lang]['format'] : filter_fallback_format();
+    $message = check_markup(token_replace($message, array('node' => $digest, 'user' => $user), array('clear' => TRUE)), $format, '', FALSE);
+    $subject = token_replace($subject, array('node' => $digest, 'user' => $user));
     
     // Set both HTML and Plain
     $body_html = $message;
@@ -392,19 +394,22 @@ $body_html";
     $sender = (!empty($digest->settings['sender']) ? $digest->settings['sender'] : variable_get('maildigest_default_sender', ''));
 
     $content = array(
-      'id' => 'maildigest',
+      'id' => 'maildigest_mail',
       'to' => $user->mail,
       'subject' => $subject,
       'body' => $multi_body,
       'headers' => array(
-        'MIME-Version' => '1.0',
-        'Content-Type' => 'multipart/alternative; boundary="'.$boundary.'"',
-        'Content-Transfer-Encoding' => '8Bit',
+        //'MIME-Version' => '1.0',
+        //'Content-Type' => 'multipart/alternative; boundary="'.$boundary.'"',
+        //'Content-Transfer-Encoding' => '8Bit',
         'From' => $sender,
+        'Sender' => $sender,
+        'Return-Path' => $sender,
       )
     );
     
-    drupal_mail_send($content);
+    $system = drupal_mail_system('maildigest', 'mail');
+    $system->mail($content);
   }
   variable_set('maildigest_digest_last_sent_' . $digest->name, time());
   maildigest_digest_set_next_times($digest);

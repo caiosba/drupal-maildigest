@@ -1,9 +1,12 @@
-function maildigestFrequencyCallback(select) {
-  $('.maildigest-frequency-field').hide();
-  if ($(select).val() == 'weekly') {
-    $('#maildigest-weekly-wrapper').show();
+/**
+ * @file
+ */
+function maildigest_frequency_callback(select) {
+  jQuery('.maildigest-frequency-field').hide();
+  if (jQuery(select).val() == 'weekly') {
+    jQuery('#maildigest-weekly-wrapper').show();
   }
-  else if ($(select).val() == 'monthly') {
-    $('#maildigest-monthly-wrapper').show();
+  else if (jQuery(select).val() == 'monthly') {
+    jQuery('#maildigest-monthly-wrapper').show();
   }
 }

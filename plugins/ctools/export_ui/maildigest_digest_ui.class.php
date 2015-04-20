@@ -14,12 +14,11 @@ class maildigest_digest_ui extends ctools_export_ui {
    */
   function edit_form(&$form, &$form_state) {
     parent::edit_form($form, $form_state);
-    extract($form_state['item']->settings);
+	extract($form_state['item']->settings);
     module_load_include('inc', 'token', 'token.pages');
-    drupal_add_js('misc/collapse.js');
-    $form['info']['admin_title']['#description'] = t('The name of this digest.');
-    $form['info']['admin_title']['#attributes'] = array('class' => 'maildigest-name');
-    $form['info']['name']['#attributes'] = array('class' => 'maildigest-id');
+	$form['info']['admin_title']['#description'] = t('The name of this digest.');
+    $form['info']['admin_title']['#attributes'] = array('class' => array('maildigest-name'));
+    $form['info']['name']['#attributes'] = array('class' => array('maildigest-id'));
     $form['digest']['#tree'] = FALSE;
     $form['digest']['#after_build'] = array('_maildigest_load_javascript_after_build_form');
     $form['digest']['settings']= array(
@@ -38,7 +37,7 @@ class maildigest_digest_ui extends ctools_export_ui {
       '#title' => t('Send newsletter every'),
       '#options' => array('daily' => t('Day'), 'weekly' => t('Week'), 'monthly' => t('Month')),
       '#default_value' => $frequency,
-      '#attributes' => array('onchange' => 'maildigestFrequencyCallback(this)')
+      '#attributes' => array('onchange' => 'maildigest_frequency_callback(this)')
     );
     $form['digest']['settings']['weekly'] = array(
       '#type' => 'select',
@@ -70,22 +69,23 @@ class maildigest_digest_ui extends ctools_export_ui {
        $form['digest']['settings'][$subject] = array(
          '#type' => 'textfield',
          '#title' => t('Subject (!name)', array('!name' => $language->name)),
-         '#description' => t('You can use the following tokens in your subject: <fieldset class="collapsible collapsed"><legend>Available tokens</legend>!tokens</fieldset>', 
-           array('!tokens' => theme('token_help', array('node', 'global', 'user')))
+         '#description' => t('You can use the following tokens in your subject: <fieldset class="collapsible collapsed"><legend><span class="fieldset-legend">Available tokens</span></legend><div class="fieldset-wrapper">!tokens</div></fieldset>', 
+           array('!tokens' => theme('token_tree', array('token_types' => array('node', 'user'))))
          ),
          '#default_value' => $$subject,
        );
        $message = str_replace('-', '_', 'message_' . $langcode);
+       $message_data = $$message;
        $form['digest']['settings'][$message] = array(
-         '#type' => 'textarea',
+         '#type' => 'text_format',
          '#title' => t('Message (!name)', array('!name' => $language->name)),
-         '#description' => t('You can use the following tokens in your message: <fieldset class="collapsible collapsed"><legend>Available tokens</legend>!tokens</fieldset>', 
-           array('!tokens' => theme('token_help', array('node', 'global', 'user')))
+         '#description' => t('You can use the following tokens in your message: <fieldset class="collapsible collapsed"><legend><span class="fieldset-legend">Available tokens</span></legend><div class="fieldset-wrapper">!tokens</div></fieldset>', 
+           array('!tokens' => theme('token_tree', array('token_types' => array('node', 'user'))))
          ),
-         '#default_value' => $$message,
+         '#default_value' => $message_data['value'],
+         '#format' => $message_data['format'],
        );
      }
-     $form['digest']['settings']['format'] = filter_form($format, NULL, array('settings', 'format'));
   }
   
   function edit_save_form($form_state) {
